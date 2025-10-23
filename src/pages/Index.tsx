@@ -109,6 +109,8 @@ const Index = () => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [systemInfo, setSystemInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [stressTestRunning, setStressTestRunning] = useState(false);
+  const [stressTestResult, setStressTestResult] = useState<any>(null);
   const { toast } = useToast();
 
   const copyToClipboard = (text: string, id: string) => {
@@ -138,6 +140,42 @@ const Index = () => {
     }
   };
 
+  const runStressTest = async () => {
+    setStressTestRunning(true);
+    setStressTestResult(null);
+    try {
+      const response = await fetch('https://functions.poehali.dev/7dd49f13-ce3c-4f24-a52b-0fbe3a998573', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setStressTestResult(data);
+        toast({
+          title: "Stress test completed",
+          description: `${data.total_requests} requests in ${data.total_duration_seconds}s`
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Stress test failed",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to run stress test",
+        variant: "destructive"
+      });
+    } finally {
+      setStressTestRunning(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'vault' && !systemInfo) {
       loadSystemInfo();
@@ -158,6 +196,53 @@ const Index = () => {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Интерактивная документация для изучения системных промптов, схем и API endpoints
           </p>
+          
+          <div className="mt-8">
+            <Button
+              onClick={runStressTest}
+              disabled={stressTestRunning}
+              size="lg"
+              className="gap-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+            >
+              <Icon name={stressTestRunning ? 'Loader2' : 'Zap'} size={20} className={stressTestRunning ? 'animate-spin' : ''} />
+              {stressTestRunning ? 'Running 100 requests...' : 'Run Stress Test (100 GET)'}
+            </Button>
+            
+            {stressTestResult && (
+              <Card className="mt-4 p-6 max-w-2xl mx-auto bg-white/90 backdrop-blur-sm">
+                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                  <Icon name="Activity" size={20} className="text-green-600" />
+                  Stress Test Results
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <p className="text-muted-foreground mb-1">Total Duration</p>
+                    <p className="font-mono font-bold text-xl">{stressTestResult.total_duration_seconds}s</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <p className="text-muted-foreground mb-1">Requests/sec</p>
+                    <p className="font-mono font-bold text-xl">{stressTestResult.requests_per_second}</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p className="text-muted-foreground mb-1">Successful</p>
+                    <p className="font-mono font-bold text-xl text-green-600">{stressTestResult.successful_requests}</p>
+                  </div>
+                  <div className="p-3 bg-red-50 rounded-lg">
+                    <p className="text-muted-foreground mb-1">Failed</p>
+                    <p className="font-mono font-bold text-xl text-red-600">{stressTestResult.failed_requests}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg col-span-2">
+                    <p className="text-muted-foreground mb-1">Avg Response Time</p>
+                    <p className="font-mono font-bold text-xl">{stressTestResult.average_response_time_ms} ms</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded-lg col-span-2">
+                    <p className="text-muted-foreground mb-1">Target URL</p>
+                    <p className="font-mono text-xs break-all">{stressTestResult.target_url}</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
         </header>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full animate-scale-in">

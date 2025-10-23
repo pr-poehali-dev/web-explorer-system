@@ -1,0 +1,16 @@
+{
+  "tests": [
+    {
+      "name": "Stress test endpoint",
+      "method": "POST",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "total_duration_seconds": "number",
+        "total_requests": "number",
+        "successful_requests": "number"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
