@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Performs stress test by sending 100 GET requests to specified URL
+    Business: Performs stress test by sending 100 POST requests in 50 parallel threads
     Args: event - dict with httpMethod
           context - object with request_id attribute
     Returns: HTTP response with test results and timing
@@ -29,22 +29,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     if method == 'POST':
-        target_url = os.environ.get('STRESS_TEST_URL')
-        
-        if not target_url:
-            return {
-                'statusCode': 400,
-                'headers': {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                'body': json.dumps({
-                    'error': 'STRESS_TEST_URL environment variable not set'
-                })
-            }
+        target_url = os.environ.get('STRESS_TEST_URL', 'https://functions.poehali.dev/7dd49f13-ce3c-4f24-a52b-0fbe3a998573')
         
         start_time = time.time()
-        results = perform_stress_test(target_url, num_requests=100)
+        results = perform_stress_test(target_url, num_requests=100, max_workers=50)
         end_time = time.time()
         
         total_duration = end_time - start_time
@@ -80,13 +68,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     }
 
 
-def perform_stress_test(url: str, num_requests: int = 100) -> List[Dict[str, Any]]:
+def perform_stress_test(url: str, num_requests: int = 100, max_workers: int = 50) -> List[Dict[str, Any]]:
     results = []
     
     def make_request(request_num: int) -> Dict[str, Any]:
         start = time.time()
         try:
-            with urllib.request.urlopen(url, timeout=30) as response:
+            req = urllib.request.Request(
+                url,
+                method='POST',
+                headers={
+                    'Content-Type': 'application/json'
+                },
+                data=b''
+            )
+            with urllib.request.urlopen(req, timeout=30) as response:
                 status_code = response.status
                 duration = time.time() - start
                 return {
@@ -114,7 +110,7 @@ def perform_stress_test(url: str, num_requests: int = 100) -> List[Dict[str, Any
                 'error': str(e)
             }
     
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(make_request, i) for i in range(num_requests)]
         for future in as_completed(futures):
             results.append(future.result())
