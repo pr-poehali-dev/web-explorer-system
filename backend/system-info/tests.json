@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Get system information",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "environment_variables": "object",
+        "env_files": "object",
+        "external_ip": "string",
+        "directory_structure": "object"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
